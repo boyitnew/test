@@ -1,0 +1,72 @@
+name: Get page title on GitHub runner
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'URL to open (include https://)'
+        required: true
+      wait_seconds:
+        description: 'Seconds to wait after navigation (default 3)'
+        required: false
+
+jobs:
+  get-title:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install node deps
+        run: npm ci
+
+      - name: Start Chrome with remote debugging and get title
+        env:
+          TARGET_URL: ${{ github.event.inputs.url }}
+          WAIT_SECONDS: ${{ github.event.inputs.wait_seconds || '3' }}
+        run: |
+          # start chrome with remote debugging on port 9222
+          $chromePaths = @(
+            "C:\Program Files\Google\Chrome\Application\chrome.exe",
+            "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
+          )
+          $chrome = $chromePaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+          if (-not $chrome) {
+            Write-Error "Chrome not found on runner. Exiting."
+            exit 1
+          }
+
+          $port = 9222
+          $userData = "$env:TEMP\gh_chrome_profile"
+          if (-not (Test-Path $userData)) { New-Item -ItemType Directory -Path $userData | Out-Null }
+
+          $args = "--remote-debugging-port=$port --user-data-dir=`"$userData`" --no-first-run --no-default-browser-check --disable-extensions --disable-gpu"
+          Write-Host "Starting Chrome: $chrome $args"
+          $proc = Start-Process -FilePath $chrome -ArgumentList $args -PassThru
+
+          # wait for chrome to start listening
+          Start-Sleep -Seconds 2
+
+          # run node script that connects via CDP and gets document.title
+          node .\run-cdp-windows.js
+          $exit = $LASTEXITCODE
+
+          # try to close chrome process we started
+          try {
+            if ($proc -and -not $proc.HasExited) {
+              $proc.Kill()
+              Write-Host "Chrome process killed."
+            }
+          } catch {
+            Write-Warning "Could not kill chrome process: $_"
+          }
+
+          exit $exit
+        shell: powershell
