@@ -24,7 +24,7 @@ jobs:
           node-version: '18'
 
       - name: Install node deps
-        run: npm ci
+        run: npm install
 
       - name: Start Chrome with remote debugging and get title
         env:
