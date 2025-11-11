@@ -47,7 +47,7 @@ jobs:
           if (-not (Test-Path $userData)) { New-Item -ItemType Directory -Path $userData | Out-Null }
 
           # headless جدید تا DevTools گوش بده
-          $args = "--headless=new --remote-debugging-port=$port --user-data-dir=`"$userData`" --no-first-run --no-default-browser-check --disable-extensions --disable-gpu"
+          $args = "--headless=old --remote-debugging-port=$port --user-data-dir=`"$userData`" --no-first-run --no-default-browser-check --disable-extensions --disable-gpu"
           Write-Host "Starting Chrome: $chrome $args"
           $proc = Start-Process -FilePath $chrome -ArgumentList $args -PassThru
 
