@@ -1,0 +1,10 @@
+{
+  "name": "gh-get-title",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "node scripts/run-cdp-windows.js"
+  },
+  "dependencies": {
+    "chrome-remote-interface": "^0.31.0"
+  }
+}
