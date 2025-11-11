@@ -1,0 +1,78 @@
+name: Get page title & screenshot on GitHub runner
+
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: 'URL to open (include https://)'
+        required: true
+      wait_seconds:
+        description: 'Seconds to wait after navigation before title eval (default 3)'
+        required: false
+
+jobs:
+  get-title:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install node deps
+        run: npm install
+
+      - name: Start Chrome with remote debugging and get title + screenshot
+        env:
+          TARGET_URL: ${{ github.event.inputs.url }}
+          WAIT_SECONDS: ${{ github.event.inputs.wait_seconds || '3' }}
+        run: |
+          $chromePaths = @(
+            "C:\Program Files\Google\Chrome\Application\chrome.exe",
+            "C:\Program Files (x86)\Google\Chrome\Application\chrome.exe"
+          )
+          $chrome = $chromePaths | Where-Object { Test-Path $_ } | Select-Object -First 1
+
+          if (-not $chrome) {
+            Write-Error "Chrome not found on runner. Exiting."
+            exit 1
+          }
+
+          $port = 9222
+          $userData = "$env:TEMP\gh_chrome_profile"
+          if (-not (Test-Path $userData)) { New-Item -ItemType Directory -Path $userData | Out-Null }
+
+          # headless جدید تا DevTools گوش بده
+          $args = "--headless=new --remote-debugging-port=$port --user-data-dir=`"$userData`" --no-first-run --no-default-browser-check --disable-extensions --disable-gpu"
+          Write-Host "Starting Chrome: $chrome $args"
+          $proc = Start-Process -FilePath $chrome -ArgumentList $args -PassThru
+
+          # give chrome some time to start CDP
+          Start-Sleep -Seconds 5
+
+          # run node script that connects via CDP, gets title and screenshot
+          node .\run-cdp-windows2.js
+          $exit = $LASTEXITCODE
+
+          # try to close chrome process we started
+          try {
+            if ($proc -and -not $proc.HasExited) {
+              $proc.Kill()
+              Write-Host "Chrome process killed."
+            }
+          } catch {
+            Write-Warning "Could not kill chrome process: $_"
+          }
+
+          exit $exit
+        shell: powershell
+
+      - name: Upload screenshot artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: page-screenshot
+          path: screenshot.png
