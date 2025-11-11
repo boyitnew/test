@@ -49,10 +49,11 @@ jobs:
 
           $args = "--remote-debugging-port=$port --user-data-dir=`"$userData`" --no-first-run --no-default-browser-check --disable-extensions --disable-gpu"
           Write-Host "Starting Chrome: $chrome $args"
-          $proc = Start-Process -FilePath $chrome -ArgumentList $args -PassThru
+          $proc = Start-Process -FilePath $chrome -ArgumentList "--headless=new --remote-debugging-port=9222 --user-data-dir=$env:TEMP\gh_chrome_profile --disable-gpu --no-sandbox --disable-software-rasterizer --disable-dev-shm-usage ${{ github.event.inputs.url }}"
+
 
           # wait for chrome to start listening
-          Start-Sleep -Seconds 2
+          Start-Sleep -Seconds 5
 
           # run node script that connects via CDP and gets document.title
           node .\run-cdp-windows.js
